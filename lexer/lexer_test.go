@@ -31,6 +31,17 @@ func TestLexer(t *testing.T) {
 				{Close, ""},
 			},
 		},
+		{
+			code:     `123`,
+			expected: []Token{{NumberTok, "123"}}},
+		{
+			code:     `foobar`,
+			expected: []Token{{SymbolTok, "foobar"}},
+		},
+		{
+			code:     `"asdf"`,
+			expected: []Token{{StringTok, "asdf"}},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.code, func(t *testing.T) {

@@ -50,6 +50,14 @@ func Lex(s string) iter.Seq[Token] {
 			}
 			fn = next
 		}
+
+		var emptyRune rune
+		_, toks := fn(emptyRune)
+		for _, v := range toks {
+			if !yield(v) {
+				return
+			}
+		}
 	}
 }
 
@@ -108,6 +116,10 @@ func makePendingSymbol(pending *strings.Builder) lexerFn {
 			return empty, []Token{{TokType: SymbolTok, Lexeme: pending.String()}, {TokType: Close}}
 		} else if r == '(' {
 			return empty, []Token{{TokType: SymbolTok, Lexeme: pending.String()}, {TokType: Open}}
+		}
+		var emptyRune rune
+		if r == emptyRune {
+			return empty, []Token{{TokType: SymbolTok, Lexeme: pending.String()}}
 		}
 
 		pending.WriteRune(r)

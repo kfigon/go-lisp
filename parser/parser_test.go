@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func Test(t *testing.T) {
+func TestParser(t *testing.T) {
 	testCases := []struct {
 		desc string
 		code string

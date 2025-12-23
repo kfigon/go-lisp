@@ -14,7 +14,8 @@ func TestEval(t *testing.T) {
 		desc string
 		code string
 
-		exp models.SExpression
+		exp          models.SExpression
+		envAssertion func(*testing.T, *models.Env)
 	}{
 		{
 			desc: "basic num",
@@ -43,9 +44,14 @@ func TestEval(t *testing.T) {
 			ast, err := parser.Parse(lexer.Lex(tC.code))
 			assert.NoError(t, err)
 
-			got, err := Eval(ast)
+			e := NewEvaluator()
+			got, err := e.Eval(ast)
 			assert.NoError(t, err)
 			assert.Equal(t, tC.exp, got)
+
+			if tC.envAssertion != nil {
+				tC.envAssertion(t, e.RootEnv)
+			}
 		})
 	}
 }

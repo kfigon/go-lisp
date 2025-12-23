@@ -24,6 +24,10 @@ type List []SExpression
 
 func (List) Exp() {}
 
+type Nil struct{}
+
+func (Nil) Exp() {}
+
 type Env struct {
 	Vals   map[string]SExpression
 	Parent *Env

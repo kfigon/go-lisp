@@ -38,6 +38,16 @@ func TestEval(t *testing.T) {
 			code: `(+ 123 (+ 1 2) (- 3 4))`,
 			exp:  models.Number(1),
 		},
+		{
+			desc: "variable declaration",
+			code: `(set x 123)`,
+			exp:  models.Nil{},
+			envAssertion: func(t *testing.T, e *models.Env) {
+				got, ok := e.Get("x")
+				assert.True(t, ok, "x not found")
+				assert.Equal(t, models.Number(123), got)
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {

@@ -59,6 +59,15 @@ func TestEval(t *testing.T) {
 			exp:  models.String("foo"),
 		},
 		{
+			desc: "logic",
+			code: `(and 
+						(or 
+							(or (= 1 2) true)
+							true)
+						(and true false))`,
+			exp: models.Bool(false),
+		},
+		{
 			desc: "variable declaration",
 			code: `(set x 123)`,
 			exp:  models.Nil{},

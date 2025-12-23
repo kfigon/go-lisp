@@ -15,7 +15,6 @@ const (
 	NumberTok
 	SymbolTok
 	StringTok
-	Keyword
 )
 
 func (t TokenType) String() string {
@@ -25,7 +24,6 @@ func (t TokenType) String() string {
 		"NumberTok",
 		"SymbolTok",
 		"StringTok",
-		"Keyword",
 	}[t]
 }
 

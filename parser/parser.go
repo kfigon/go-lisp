@@ -70,7 +70,14 @@ func (p *parser) parseString() models.String {
 	return models.String(p.currentTok.Lexeme)
 }
 
-func (p *parser) parseSymbol() models.Symbol {
+func (p *parser) parseSymbol() models.SExpression {
+	if p.currentTok.Lexeme == "nil" {
+		return models.Nil{}
+	} else if p.currentTok.Lexeme == "true" {
+		return models.Bool(true)
+	} else if p.currentTok.Lexeme == "false" {
+		return models.Bool(false)
+	}
 	return models.Symbol(p.currentTok.Lexeme)
 }
 

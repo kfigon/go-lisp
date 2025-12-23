@@ -22,6 +22,22 @@ func TestParser(t *testing.T) {
 			exp:  []models.SExpression{models.Number(123)},
 		},
 		{
+			desc: "nil",
+			code: `nil`,
+			exp:  []models.SExpression{models.Nil{}},
+		},
+		{
+			desc: "bools",
+			code: `(= true false)`,
+			exp: []models.SExpression{
+				models.List{
+					models.Symbol("="),
+					models.Bool(true),
+					models.Bool(false),
+				},
+			},
+		},
+		{
 			desc: "sum",
 			code: `(+ 123 1 2)`,
 			exp: []models.SExpression{

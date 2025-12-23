@@ -18,6 +18,7 @@ func NewEvaluator() *Evaluator {
 }
 
 func initStdLib(e *models.Env) {
+	e.Vals["if"] = models.Nil{}
 	e.Vals["set"] = models.Nil{}
 	e.Vals["lambda"] = models.Nil{}
 	e.Vals["print"] = models.Nil{}

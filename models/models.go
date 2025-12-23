@@ -28,23 +28,26 @@ type Nil struct{}
 
 func (Nil) Exp() {}
 
+type EnvFun func(...SExpression) (SExpression, error)
 type Env struct {
-	Vals   map[string]SExpression
+	Vals   map[string]EnvFun
 	Parent *Env
 }
 
 func NewEnv(parent *Env) *Env {
 	return &Env{
-		Vals:   map[string]SExpression{},
+		Vals:   map[string]EnvFun{},
 		Parent: parent,
 	}
 }
 
-func (e *Env) Get(s string) (SExpression, bool) {
+func (e *Env) Get(s string) (EnvFun, bool) {
 	v, ok := e.Vals[s]
 	return v, ok
 }
 
 func (e *Env) Set(s string, v SExpression) {
-	e.Vals[s] = v
+	e.Vals[s] = func(s ...SExpression) (SExpression, error) {
+		return v, nil
+	}
 }

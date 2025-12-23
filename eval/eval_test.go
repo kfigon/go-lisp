@@ -36,7 +36,7 @@ func TestEval(t *testing.T) {
 		{
 			desc: "nested",
 			code: `(+ 123 (+ 1 2) (- 3 4))`,
-			exp:  models.Number(1),
+			exp:  models.Number(123 + (1 + 2) + (3 - 4)),
 		},
 		{
 			desc: "variable declaration",
@@ -45,7 +45,9 @@ func TestEval(t *testing.T) {
 			envAssertion: func(t *testing.T, e *models.Env) {
 				got, ok := e.Get("x")
 				assert.True(t, ok, "x not found")
-				assert.Equal(t, models.Number(123), got)
+				val, err := got()
+				assert.NoError(t, err)
+				assert.Equal(t, models.Number(123), val)
 			},
 		},
 	}

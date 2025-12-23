@@ -39,6 +39,26 @@ func TestEval(t *testing.T) {
 			exp:  models.Number(123 + (1 + 2) + (3 - 4)),
 		},
 		{
+			desc: "basic if",
+			code: `(if true 1 2)`,
+			exp:  models.Number(1),
+		},
+		{
+			desc: "basic if2",
+			code: `(if false 1 2)`,
+			exp:  models.Number(2),
+		},
+		{
+			desc: "if1",
+			code: `(if (= 1 2) "foo" (+ 1 2))`,
+			exp:  models.Number(3),
+		},
+		{
+			desc: "if2",
+			code: `(if (and (= 1 1) true) "foo" (+ 1 2))`,
+			exp:  models.String("foo"),
+		},
+		{
 			desc: "variable declaration",
 			code: `(set x 123)`,
 			exp:  models.Nil{},

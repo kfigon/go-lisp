@@ -19,18 +19,63 @@ func NewEvaluator() *Evaluator {
 }
 
 func (e *Evaluator) initStdLib() {
-	// e.RootEnv.Vals["if"] = models.Nil{}
-	// e.RootEnv.Vals["set"] = models.Nil{}
 	// e.RootEnv.Vals["lambda"] = models.Nil{}
 	// e.RootEnv.Vals["print"] = models.Nil{}
 	e.RootEnv.Vals["+"] = createArithmeticOp(e, func(a, b int) int { return a + b })
 	e.RootEnv.Vals["-"] = createArithmeticOp(e, func(a, b int) int { return a - b })
 	e.RootEnv.Vals["*"] = createArithmeticOp(e, func(a, b int) int { return a * b })
 	e.RootEnv.Vals["/"] = createArithmeticOp(e, func(a, b int) int { return a / b })
-	// e.RootEnv.Vals["="] = models.Nil{}
-	// e.RootEnv.Vals["!="] = models.Nil{}
-	e.RootEnv.Vals["set"] = func(in ...models.SExpression) (models.SExpression, error) {
-		args := in[0].(models.List)
+	e.RootEnv.Vals["="] = func(args ...models.SExpression) (models.SExpression, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("'=' expects 2 args, got %d", len(args))
+		}
+		a, err := e.evalSingle(args[0])
+		if err != nil {
+			return nil, err
+		}
+
+		b, err := e.evalSingle(args[1])
+		if err != nil {
+			return nil, err
+		}
+
+		aN, aOk := a.(models.Number)
+		bN, bOk := b.(models.Number)
+		if aOk && bOk {
+			return models.Bool(int(aN) == int(bN)), nil
+		}
+
+		aB, aOk := a.(models.Bool)
+		bB, bOk := b.(models.Bool)
+		if aOk && bOk {
+			return models.Bool(bool(aB) == bool(bB)), nil
+		}
+		aS, aOk := a.(models.String)
+		bS, bOk := b.(models.String)
+		if aOk && bOk {
+			return models.Bool(string(aS) == string(bS)), nil
+		}
+
+		aS2, aOk := a.(models.Symbol)
+		bS2, bOk := b.(models.Symbol)
+		if aOk && bOk {
+			return models.Bool(string(aS2) == string(bS2)), nil
+		}
+		return nil, fmt.Errorf("type mismatch: %T, %T", a, b)
+	}
+	e.RootEnv.Vals["!="] = func(args ...models.SExpression) (models.SExpression, error) {
+		eqFn, _ := e.RootEnv.Get("=")
+		got, err := eqFn(args...)
+		if err != nil {
+			return nil, err
+		}
+		b, ok := got.(models.Bool)
+		if !ok {
+			return nil, fmt.Errorf("non boolean arg: %T", got)
+		}
+		return models.Bool(!bool(b)), nil
+	}
+	e.RootEnv.Vals["set"] = func(args ...models.SExpression) (models.SExpression, error) {
 		if len(args) != 2 {
 			return nil, fmt.Errorf("set expects 2 args, got %d", len(args))
 		}
@@ -44,6 +89,78 @@ func (e *Evaluator) initStdLib() {
 		}
 		e.RootEnv.Set(string(key), res)
 		return models.Nil{}, nil
+	}
+	e.RootEnv.Vals["and"] = func(args ...models.SExpression) (models.SExpression, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("and expects 2 args, got %d", len(args))
+		}
+		a, err := e.evalSingle(args[0])
+		if err != nil {
+			return nil, err
+		}
+		aB, ok := a.(models.Bool)
+		if !ok {
+			return nil, fmt.Errorf("and operand A should be bool, got %T", a)
+		}
+		if !aB {
+			return models.Bool(false), nil
+		}
+
+		b, err := e.evalSingle(args[1])
+		if err != nil {
+			return nil, err
+		}
+		bB, ok := b.(models.Bool)
+		if !ok {
+			return nil, fmt.Errorf("and operand B should be bool, got %T", b)
+		}
+		return models.Bool(aB && bB), nil
+	}
+
+	e.RootEnv.Vals["or"] = func(args ...models.SExpression) (models.SExpression, error) {
+		if len(args) != 2 {
+			return nil, fmt.Errorf("or expects 2 args, got %d", len(args))
+		}
+		a, err := e.evalSingle(args[0])
+		if err != nil {
+			return nil, err
+		}
+		aB, ok := a.(models.Bool)
+		if !ok {
+			return nil, fmt.Errorf("or operand A should be bool, got %T", a)
+		}
+		if aB {
+			return models.Bool(true), nil
+		}
+
+		b, err := e.evalSingle(args[1])
+		if err != nil {
+			return nil, err
+		}
+		bB, ok := b.(models.Bool)
+		if !ok {
+			return nil, fmt.Errorf("or operand B should be bool, got %T", b)
+		}
+		return models.Bool(aB || bB), nil
+	}
+
+	e.RootEnv.Vals["if"] = func(args ...models.SExpression) (models.SExpression, error) {
+		if len(args) != 3 {
+			return nil, fmt.Errorf("if expects 3 args, got %d", len(args))
+		}
+		condition, err := e.evalSingle(args[0])
+		if err != nil {
+			return nil, err
+		}
+		pred, ok := condition.(models.Bool)
+		if !ok {
+			return nil, fmt.Errorf("if expects boolean as predicate result, got %T", condition)
+		}
+
+		if pred {
+			return e.evalSingle(args[1])
+		}
+		return e.evalSingle(args[2])
 	}
 }
 
@@ -85,14 +202,13 @@ func (e *Evaluator) evalList(v models.List) (models.SExpression, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s not found", symbol)
 	}
-	return val(v[1:])
+	return val(v[1:]...)
 }
 
 func createArithmeticOp(e *Evaluator, op func(int, int) int) models.EnvFun {
 	return func(args ...models.SExpression) (models.SExpression, error) {
-		list := args[0].(models.List)
 		var res *int
-		for _, v := range list {
+		for _, v := range args {
 			got, err := e.evalSingle(v)
 			if err != nil {
 				return nil, err

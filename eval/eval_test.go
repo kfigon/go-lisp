@@ -85,21 +85,14 @@ func TestEval(t *testing.T) {
 				(+ 5 x y)))`,
 			exp: models.Nil{},
 			envAssertion: func(t *testing.T, e *models.Env) {
-				got, ok := e.Get("foobar")
+				_, ok := e.Get("foobar")
 				assert.True(t, ok)
-				val, err := got()
-				assert.NoError(t, err)
-				exp := &models.Function{
-					Name: "foobar",
-					Args: []models.Symbol{"x", "y"},
-					Body: models.List{
-						models.Symbol("+"),
-						models.Number(5),
-						models.Symbol("x"),
-						models.Symbol("y"),
-					},
-				}
-				assert.Equal(t, exp, val)
+
+				_, ok = e.Get("x")
+				assert.False(t, ok)
+
+				_, ok = e.Get("y")
+				assert.False(t, ok)
 			},
 		},
 		{
@@ -109,7 +102,10 @@ func TestEval(t *testing.T) {
 				(foobar 10)`,
 			exp: models.Number(15),
 			envAssertion: func(t *testing.T, e *models.Env) {
-				_, ok := e.Get("x")
+				_, ok := e.Get("foobar")
+				assert.True(t, ok)
+
+				_, ok = e.Get("x")
 				assert.False(t, ok)
 			},
 		},

@@ -87,6 +87,25 @@ func TestParser(t *testing.T) {
 				},
 			},
 		},
+		{
+			desc: "function declaration",
+			code: `(lambda foobar (x y)(
+				(+ 5 x y)))`,
+			exp: []models.SExpression{
+				&models.Function{
+					Name: "foobar",
+					Args: []models.Symbol{"x", "y"},
+					Body: models.List{
+						models.List{
+							models.Symbol("+"),
+							models.Number(5),
+							models.Symbol("x"),
+							models.Symbol("y"),
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {

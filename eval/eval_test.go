@@ -81,8 +81,8 @@ func TestEval(t *testing.T) {
 		},
 		{
 			desc: "function declaration",
-			code: `(lambda foobar (x)(
-				(+ 5 x)))`,
+			code: `(lambda foobar (x y)(
+				(+ 5 x y)))`,
 			exp: models.Nil{},
 			envAssertion: func(t *testing.T, e *models.Env) {
 				got, ok := e.Get("foobar")
@@ -90,13 +90,13 @@ func TestEval(t *testing.T) {
 				val, err := got()
 				assert.NoError(t, err)
 				exp := &models.Function{
-					Args: []models.Symbol{"x"},
-					Body: []models.SExpression{
-						models.List{
-							models.Symbol("+"),
-							models.Number(5),
-							models.Symbol("x"),
-						},
+					Name: "foobar",
+					Args: []models.Symbol{"x", "y"},
+					Body: models.List{
+						models.Symbol("+"),
+						models.Number(5),
+						models.Symbol("x"),
+						models.Symbol("y"),
 					},
 				}
 				assert.Equal(t, exp, val)
@@ -119,7 +119,7 @@ func TestEval(t *testing.T) {
 			ast, err := parser.Parse(lexer.Lex(tC.code))
 			assert.NoError(t, err)
 
-			e := NewEvaluator()
+			e := NewEvaluator(nil)
 			got, err := e.Eval(ast)
 			assert.NoError(t, err)
 			assert.Equal(t, tC.exp, got)

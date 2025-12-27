@@ -10,7 +10,8 @@ import (
 type TokenType int
 
 const (
-	Open TokenType = iota
+	EOF TokenType = iota
+	Open
 	Close
 	NumberTok
 	SymbolTok
@@ -19,6 +20,7 @@ const (
 
 func (t TokenType) String() string {
 	return [...]string{
+		"EOF",
 		"Open",
 		"Close",
 		"NumberTok",

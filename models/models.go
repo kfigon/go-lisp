@@ -29,11 +29,12 @@ type Nil struct{}
 func (Nil) Exp() {}
 
 type Function struct {
+	Name string
 	Args []Symbol
-	Body []SExpression
+	Body SExpression
 }
 
-func (Function) Exp() {}
+func (*Function) Exp() {}
 
 type EnvFun func(...SExpression) (SExpression, error)
 type Env struct {
@@ -50,7 +51,12 @@ func NewEnv(parent *Env) *Env {
 
 func (e *Env) Get(s string) (EnvFun, bool) {
 	v, ok := e.Vals[s]
-	return v, ok
+	if ok {
+		return v, ok
+	} else if e.Parent != nil {
+		return e.Parent.Get(s)
+	}
+	return nil, false
 }
 
 func (e *Env) Set(s string, v SExpression) {

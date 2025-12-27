@@ -46,13 +46,14 @@ func (p *parser) parse() {
 }
 
 func (p *parser) parseNode() (models.SExpression, error) {
-	if p.currentTok.TokType == lexer.NumberTok {
+	switch p.currentTok.TokType {
+	case lexer.NumberTok:
 		return p.parseNum()
-	} else if p.currentTok.TokType == lexer.StringTok {
+	case lexer.StringTok:
 		return p.parseString(), nil
-	} else if p.currentTok.TokType == lexer.SymbolTok {
+	case lexer.SymbolTok:
 		return p.parseSymbol(), nil
-	} else if p.currentTok.TokType == lexer.Open {
+	case lexer.Open:
 		return p.parseList()
 	}
 	panic("unreachable " + p.currentTok.String())
@@ -71,19 +72,24 @@ func (p *parser) parseString() models.String {
 }
 
 func (p *parser) parseSymbol() models.SExpression {
-	if p.currentTok.Lexeme == "nil" {
+	switch p.currentTok.Lexeme {
+	case "nil":
 		return models.Nil{}
-	} else if p.currentTok.Lexeme == "true" {
+	case "true":
 		return models.Bool(true)
-	} else if p.currentTok.Lexeme == "false" {
+	case "false":
 		return models.Bool(false)
 	}
 	return models.Symbol(p.currentTok.Lexeme)
 }
 
-func (p *parser) parseList() (models.List, error) {
+func (p *parser) parseList() (models.SExpression, error) {
+	p.advance() // (
+	if p.currentTok.Lexeme == "lambda" {
+		return p.parseLambda()
+	}
+
 	nodes := models.List{}
-	p.advance()
 	for p.tokenOk && p.currentTok.TokType != lexer.Close {
 		got, err := p.parseNode()
 		if err != nil {
@@ -93,6 +99,38 @@ func (p *parser) parseList() (models.List, error) {
 		p.advance()
 	}
 	return nodes, nil
+}
+
+func (p *parser) parseLambda() (*models.Function, error) {
+	p.advance() // lambda
+	if p.currentTok.TokType != lexer.SymbolTok {
+		return nil, fmt.Errorf("invalid lambda name, expected symbol, got %s", p.currentTok.TokType)
+	}
+	name := p.currentTok.Lexeme
+	p.advance() // symbol
+	if p.currentTok.TokType != lexer.Open {
+		return nil, fmt.Errorf("invalid lambda arg list, expected list, got %s", p.currentTok.TokType)
+	}
+	p.advance() // (
+	argList := []models.Symbol{}
+	for p.tokenOk && p.currentTok.TokType != lexer.Close {
+		if p.currentTok.TokType != lexer.SymbolTok {
+			return nil, fmt.Errorf("invalid lambda declaration, expected list of symbols as args, got %s", p.currentTok.TokType)
+		}
+		argList = append(argList, models.Symbol(p.currentTok.Lexeme))
+		p.advance()
+	}
+	p.advance() // )
+	body, err := p.parseNode()
+	if err != nil {
+		return nil, fmt.Errorf("erro parsing body of lambda: %w", err)
+	}
+	p.advance() // )
+	return &models.Function{
+		Name: name,
+		Args: argList,
+		Body: body,
+	}, nil
 }
 
 func (p *parser) emitError(err error) {

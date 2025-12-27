@@ -9,8 +9,10 @@ type Evaluator struct {
 	RootEnv *models.Env
 }
 
-func NewEvaluator() *Evaluator {
-	rootEnv := models.NewEnv(nil)
+func NewEvaluator(rootEnv *models.Env) *Evaluator {
+	if rootEnv == nil {
+		rootEnv = models.NewEnv(nil)
+	}
 	e := &Evaluator{
 		RootEnv: rootEnv,
 	}
@@ -19,7 +21,6 @@ func NewEvaluator() *Evaluator {
 }
 
 func (e *Evaluator) initStdLib() {
-	// e.RootEnv.Vals["lambda"] = models.Nil{}
 	// e.RootEnv.Vals["print"] = models.Nil{}
 	e.RootEnv.Vals["+"] = createArithmeticOp(e, func(a, b int) int { return a + b })
 	e.RootEnv.Vals["-"] = createArithmeticOp(e, func(a, b int) int { return a - b })
@@ -178,10 +179,18 @@ func (e *Evaluator) Eval(ast []models.SExpression) (models.SExpression, error) {
 
 func (e *Evaluator) evalSingle(ex models.SExpression) (models.SExpression, error) {
 	switch v := ex.(type) {
-	case models.Bool, models.Number, models.String, models.Symbol:
+	case models.Bool, models.Number, models.String:
 		return ex, nil
+	case models.Symbol:
+		fn, ok := e.RootEnv.Get(string(v))
+		if !ok {
+			return nil, fmt.Errorf("unknown symbol %s", v)
+		}
+		return fn()
 	case models.List:
 		return e.evalList(v)
+	case *models.Function:
+		return e.evalFunctionDeclaration(v)
 	default:
 		return nil, fmt.Errorf("invalid expression: %T", ex)
 	}
@@ -226,6 +235,22 @@ func createArithmeticOp(e *Evaluator, op func(int, int) int) models.EnvFun {
 		}
 		return models.Number(*res), nil
 	}
+}
+
+func (e *Evaluator) evalFunctionDeclaration(v *models.Function) (models.SExpression, error) {
+	e.RootEnv.Vals[v.Name] = func(s ...models.SExpression) (models.SExpression, error) {
+		if len(s) != len(v.Args) {
+			return nil, fmt.Errorf("invalid numer of args to function, exp %d, got %d", len(v.Args), len(s))
+		}
+		newEnv := models.NewEnv(e.RootEnv)
+		for i, arg := range s {
+			newEnv.Set(string(v.Args[i]), arg)
+		}
+		newE := NewEvaluator(newEnv)
+		l, _ := v.Body.(models.List)
+		return newE.evalSingle(l[0])
+	}
+	return models.Nil{}, nil
 }
 
 func ptr[T any](v T) *T {

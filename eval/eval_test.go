@@ -79,6 +79,40 @@ func TestEval(t *testing.T) {
 				assert.Equal(t, models.Number(123), val)
 			},
 		},
+		{
+			desc: "function declaration",
+			code: `(lambda foobar (x)(
+				(+ 5 x)))`,
+			exp: models.Nil{},
+			envAssertion: func(t *testing.T, e *models.Env) {
+				got, ok := e.Get("foobar")
+				assert.True(t, ok)
+				val, err := got()
+				assert.NoError(t, err)
+				exp := &models.Function{
+					Args: []models.Symbol{"x"},
+					Body: []models.SExpression{
+						models.List{
+							models.Symbol("+"),
+							models.Number(5),
+							models.Symbol("x"),
+						},
+					},
+				}
+				assert.Equal(t, exp, val)
+			},
+		},
+		{
+			desc: "function invocation",
+			code: `(lambda foobar (x)(
+				(+ 5 x)))
+				(foobar 10)`,
+			exp: models.Number(15),
+			envAssertion: func(t *testing.T, e *models.Env) {
+				_, ok := e.Get("x")
+				assert.False(t, ok)
+			},
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {

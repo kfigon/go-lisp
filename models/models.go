@@ -28,6 +28,13 @@ type Nil struct{}
 
 func (Nil) Exp() {}
 
+type Function struct {
+	Args []Symbol
+	Body []SExpression
+}
+
+func (Function) Exp() {}
+
 type EnvFun func(...SExpression) (SExpression, error)
 type Env struct {
 	Vals   map[string]EnvFun

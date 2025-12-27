@@ -109,6 +109,26 @@ func TestEval(t *testing.T) {
 				assert.False(t, ok)
 			},
 		},
+		{
+			desc: "function invocation2",
+			code: `(lambda incr (x)((+ 1 x)))
+				(incr (- 10 1))`,
+			exp: models.Number(10),
+		},
+		{
+			desc: "fibonacci",
+			code: `
+			(lambda fibo (x)(
+				(if (= x 0)
+					0 
+					(if (= x 1)
+						1 
+						(+ (fibo (- x 1)) (fibo (- x 2)))))	
+			))
+
+			(fibo 10)`,
+			exp: models.Number(55),
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {

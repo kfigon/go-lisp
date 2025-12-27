@@ -10,13 +10,14 @@ type Evaluator struct {
 }
 
 func NewEvaluator(rootEnv *models.Env) *Evaluator {
+	e := &Evaluator{}
 	if rootEnv == nil {
-		rootEnv = models.NewEnv(nil)
+		e.RootEnv = models.NewEnv(nil)
+		e.initStdLib()
+	} else {
+		e.RootEnv = rootEnv
 	}
-	e := &Evaluator{
-		RootEnv: rootEnv,
-	}
-	e.initStdLib()
+
 	return e
 }
 
@@ -62,6 +63,7 @@ func (e *Evaluator) initStdLib() {
 		if aOk && bOk {
 			return models.Bool(string(aS2) == string(bS2)), nil
 		}
+
 		return nil, fmt.Errorf("type mismatch: %T, %T", a, b)
 	}
 	e.RootEnv.Vals["!="] = func(args ...models.SExpression) (models.SExpression, error) {
@@ -242,8 +244,17 @@ func (e *Evaluator) evalFunctionDeclaration(v *models.Function) (models.SExpress
 		if len(s) != len(v.Args) {
 			return nil, fmt.Errorf("invalid numer of args to function, exp %d, got %d", len(v.Args), len(s))
 		}
+		evaluatedArgs := []models.SExpression{}
+		for i, a := range s {
+			got, err := e.evalSingle(a)
+			if err != nil {
+				return nil, fmt.Errorf("error evaluating %dth argument to %s: %w", i, v.Name, err)
+			}
+			evaluatedArgs = append(evaluatedArgs, got)
+		}
+
 		newEnv := models.NewEnv(e.RootEnv)
-		for i, arg := range s {
+		for i, arg := range evaluatedArgs {
 			newEnv.Set(string(v.Args[i]), arg)
 		}
 		newE := NewEvaluator(newEnv)

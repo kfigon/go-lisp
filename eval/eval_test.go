@@ -116,6 +116,12 @@ func TestEval(t *testing.T) {
 			exp: models.Number(10),
 		},
 		{
+			desc: "function invocation3",
+			code: `(lambda identity (x)(x))
+				(identity 5)`,
+			exp: models.Number(5),
+		},
+		{
 			desc: "fibonacci",
 			code: `
 			(lambda fibo (x)(

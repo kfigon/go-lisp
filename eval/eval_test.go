@@ -15,7 +15,7 @@ func TestEval(t *testing.T) {
 		code string
 
 		exp          models.SExpression
-		envAssertion func(*testing.T, *models.Env)
+		envAssertion func(*testing.T, *Env)
 	}{
 		{
 			desc: "basic num",
@@ -71,10 +71,10 @@ func TestEval(t *testing.T) {
 			desc: "variable declaration",
 			code: `(set x 123)`,
 			exp:  models.Nil{},
-			envAssertion: func(t *testing.T, e *models.Env) {
+			envAssertion: func(t *testing.T, e *Env) {
 				got, ok := e.Get("x")
 				assert.True(t, ok, "x not found")
-				val, err := got()
+				val, err := got(nil)
 				assert.NoError(t, err)
 				assert.Equal(t, models.Number(123), val)
 			},
@@ -84,7 +84,7 @@ func TestEval(t *testing.T) {
 			code: `(lambda foobar (x y)(
 				(+ 5 x y)))`,
 			exp: models.Nil{},
-			envAssertion: func(t *testing.T, e *models.Env) {
+			envAssertion: func(t *testing.T, e *Env) {
 				_, ok := e.Get("foobar")
 				assert.True(t, ok)
 
@@ -101,7 +101,7 @@ func TestEval(t *testing.T) {
 				(+ 5 x)))
 				(foobar 10)`,
 			exp: models.Number(15),
-			envAssertion: func(t *testing.T, e *models.Env) {
+			envAssertion: func(t *testing.T, e *Env) {
 				_, ok := e.Get("foobar")
 				assert.True(t, ok)
 

@@ -5,14 +5,43 @@ import (
 	"go-lisp/models"
 )
 
-type Evaluator struct {
-	RootEnv *models.Env
+type EnvFun func(*Evaluator, ...models.SExpression) (models.SExpression, error)
+type Env struct {
+	Vals   map[string]EnvFun
+	Parent *Env
 }
 
-func NewEvaluator(rootEnv *models.Env) *Evaluator {
+func NewEnv(parent *Env) *Env {
+	return &Env{
+		Vals:   map[string]EnvFun{},
+		Parent: parent,
+	}
+}
+
+func (e *Env) Get(s string) (EnvFun, bool) {
+	v, ok := e.Vals[s]
+	if ok {
+		return v, ok
+	} else if e.Parent != nil {
+		return e.Parent.Get(s)
+	}
+	return nil, false
+}
+
+func (e *Env) Set(s string, v models.SExpression) {
+	e.Vals[s] = func(_ *Evaluator, _ ...models.SExpression) (models.SExpression, error) {
+		return v, nil
+	}
+}
+
+type Evaluator struct {
+	RootEnv *Env
+}
+
+func NewEvaluator(rootEnv *Env) *Evaluator {
 	e := &Evaluator{}
 	if rootEnv == nil {
-		e.RootEnv = models.NewEnv(nil)
+		e.RootEnv = NewEnv(nil)
 		e.initStdLib()
 	} else {
 		e.RootEnv = rootEnv
@@ -23,20 +52,20 @@ func NewEvaluator(rootEnv *models.Env) *Evaluator {
 
 func (e *Evaluator) initStdLib() {
 	// e.RootEnv.Vals["print"] = models.Nil{}
-	e.RootEnv.Vals["+"] = createArithmeticOp(e, func(a, b int) int { return a + b })
-	e.RootEnv.Vals["-"] = createArithmeticOp(e, func(a, b int) int { return a - b })
-	e.RootEnv.Vals["*"] = createArithmeticOp(e, func(a, b int) int { return a * b })
-	e.RootEnv.Vals["/"] = createArithmeticOp(e, func(a, b int) int { return a / b })
-	e.RootEnv.Vals["="] = func(args ...models.SExpression) (models.SExpression, error) {
+	e.RootEnv.Vals["+"] = createArithmeticOp(func(a, b int) int { return a + b })
+	e.RootEnv.Vals["-"] = createArithmeticOp(func(a, b int) int { return a - b })
+	e.RootEnv.Vals["*"] = createArithmeticOp(func(a, b int) int { return a * b })
+	e.RootEnv.Vals["/"] = createArithmeticOp(func(a, b int) int { return a / b })
+	e.RootEnv.Vals["="] = func(ev *Evaluator, args ...models.SExpression) (models.SExpression, error) {
 		if len(args) != 2 {
 			return nil, fmt.Errorf("'=' expects 2 args, got %d", len(args))
 		}
-		a, err := e.evalSingle(args[0])
+		a, err := ev.evalSingle(args[0])
 		if err != nil {
 			return nil, err
 		}
 
-		b, err := e.evalSingle(args[1])
+		b, err := ev.evalSingle(args[1])
 		if err != nil {
 			return nil, err
 		}
@@ -66,9 +95,9 @@ func (e *Evaluator) initStdLib() {
 
 		return nil, fmt.Errorf("type mismatch: %T, %T", a, b)
 	}
-	e.RootEnv.Vals["!="] = func(args ...models.SExpression) (models.SExpression, error) {
+	e.RootEnv.Vals["!="] = func(ev *Evaluator, args ...models.SExpression) (models.SExpression, error) {
 		eqFn, _ := e.RootEnv.Get("=")
-		got, err := eqFn(args...)
+		got, err := eqFn(ev, args...)
 		if err != nil {
 			return nil, err
 		}
@@ -78,7 +107,7 @@ func (e *Evaluator) initStdLib() {
 		}
 		return models.Bool(!bool(b)), nil
 	}
-	e.RootEnv.Vals["set"] = func(args ...models.SExpression) (models.SExpression, error) {
+	e.RootEnv.Vals["set"] = func(ev *Evaluator, args ...models.SExpression) (models.SExpression, error) {
 		if len(args) != 2 {
 			return nil, fmt.Errorf("set expects 2 args, got %d", len(args))
 		}
@@ -86,18 +115,18 @@ func (e *Evaluator) initStdLib() {
 		if !ok {
 			return nil, fmt.Errorf("first arg to set should be a symbol, got %T", args[0])
 		}
-		res, err := e.evalSingle(args[1])
+		res, err := ev.evalSingle(args[1])
 		if err != nil {
 			return nil, err
 		}
-		e.RootEnv.Set(string(key), res)
+		ev.RootEnv.Set(string(key), res)
 		return models.Nil{}, nil
 	}
-	e.RootEnv.Vals["and"] = func(args ...models.SExpression) (models.SExpression, error) {
+	e.RootEnv.Vals["and"] = func(ev *Evaluator, args ...models.SExpression) (models.SExpression, error) {
 		if len(args) != 2 {
 			return nil, fmt.Errorf("and expects 2 args, got %d", len(args))
 		}
-		a, err := e.evalSingle(args[0])
+		a, err := ev.evalSingle(args[0])
 		if err != nil {
 			return nil, err
 		}
@@ -109,7 +138,7 @@ func (e *Evaluator) initStdLib() {
 			return models.Bool(false), nil
 		}
 
-		b, err := e.evalSingle(args[1])
+		b, err := ev.evalSingle(args[1])
 		if err != nil {
 			return nil, err
 		}
@@ -120,11 +149,11 @@ func (e *Evaluator) initStdLib() {
 		return models.Bool(aB && bB), nil
 	}
 
-	e.RootEnv.Vals["or"] = func(args ...models.SExpression) (models.SExpression, error) {
+	e.RootEnv.Vals["or"] = func(ev *Evaluator, args ...models.SExpression) (models.SExpression, error) {
 		if len(args) != 2 {
 			return nil, fmt.Errorf("or expects 2 args, got %d", len(args))
 		}
-		a, err := e.evalSingle(args[0])
+		a, err := ev.evalSingle(args[0])
 		if err != nil {
 			return nil, err
 		}
@@ -136,7 +165,7 @@ func (e *Evaluator) initStdLib() {
 			return models.Bool(true), nil
 		}
 
-		b, err := e.evalSingle(args[1])
+		b, err := ev.evalSingle(args[1])
 		if err != nil {
 			return nil, err
 		}
@@ -147,11 +176,11 @@ func (e *Evaluator) initStdLib() {
 		return models.Bool(aB || bB), nil
 	}
 
-	e.RootEnv.Vals["if"] = func(args ...models.SExpression) (models.SExpression, error) {
+	e.RootEnv.Vals["if"] = func(ev *Evaluator, args ...models.SExpression) (models.SExpression, error) {
 		if len(args) != 3 {
 			return nil, fmt.Errorf("if expects 3 args, got %d", len(args))
 		}
-		condition, err := e.evalSingle(args[0])
+		condition, err := ev.evalSingle(args[0])
 		if err != nil {
 			return nil, err
 		}
@@ -161,9 +190,9 @@ func (e *Evaluator) initStdLib() {
 		}
 
 		if pred {
-			return e.evalSingle(args[1])
+			return ev.evalSingle(args[1])
 		}
-		return e.evalSingle(args[2])
+		return ev.evalSingle(args[2])
 	}
 }
 
@@ -188,7 +217,7 @@ func (e *Evaluator) evalSingle(ex models.SExpression) (models.SExpression, error
 		if !ok {
 			return nil, fmt.Errorf("unknown symbol %s", v)
 		}
-		return fn()
+		return fn(e)
 	case models.List:
 		return e.evalList(v)
 	case *models.Function:
@@ -213,14 +242,14 @@ func (e *Evaluator) evalList(v models.List) (models.SExpression, error) {
 	if !ok {
 		return nil, fmt.Errorf("%s not found", symbol)
 	}
-	return val(v[1:]...)
+	return val(e, v[1:]...)
 }
 
-func createArithmeticOp(e *Evaluator, op func(int, int) int) models.EnvFun {
-	return func(args ...models.SExpression) (models.SExpression, error) {
+func createArithmeticOp(op func(int, int) int) EnvFun {
+	return func(ev *Evaluator, args ...models.SExpression) (models.SExpression, error) {
 		var res *int
 		for _, v := range args {
-			got, err := e.evalSingle(v)
+			got, err := ev.evalSingle(v)
 			if err != nil {
 				return nil, err
 			}
@@ -240,20 +269,20 @@ func createArithmeticOp(e *Evaluator, op func(int, int) int) models.EnvFun {
 }
 
 func (e *Evaluator) evalFunctionDeclaration(v *models.Function) (models.SExpression, error) {
-	e.RootEnv.Vals[v.Name] = func(s ...models.SExpression) (models.SExpression, error) {
+	e.RootEnv.Vals[v.Name] = func(ev *Evaluator, s ...models.SExpression) (models.SExpression, error) {
 		if len(s) != len(v.Args) {
 			return nil, fmt.Errorf("invalid numer of args to function, exp %d, got %d", len(v.Args), len(s))
 		}
 		evaluatedArgs := []models.SExpression{}
 		for i, a := range s {
-			got, err := e.evalSingle(a)
+			got, err := ev.evalSingle(a)
 			if err != nil {
 				return nil, fmt.Errorf("error evaluating %dth argument to %s: %w", i, v.Name, err)
 			}
 			evaluatedArgs = append(evaluatedArgs, got)
 		}
 
-		newEnv := models.NewEnv(e.RootEnv)
+		newEnv := NewEnv(e.RootEnv)
 		for i, arg := range evaluatedArgs {
 			newEnv.Set(string(v.Args[i]), arg)
 		}

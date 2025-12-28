@@ -25,6 +25,13 @@ when init server with this lisp code:
 (lambda foo (param) (
     (if (= param 1) true false)
 ))
+(lambda fibo (x)(
+    (if (= x 0)
+        0 
+        (if (= x 1)
+            1 
+            (+ (fibo (- x 1)) (fibo (- x 2)))))	
+))
 ```
 you can query these values with REST request:
 
@@ -37,8 +44,12 @@ curl localhost:8080/api/flag/port
 {"num_value":8080}
 ```
 ```
- curl -XPOST localhost:8080/api/flag/foo -d '{"args": [1]}'
+curl -XPOST localhost:8080/api/flag/foo -d '{"args": [1]}'
 {"bool_value":true}
+```
+```
+curl -XPOST localhost:8080/api/flag/fibo -d '{"args": [12]}'
+{"num_value":144}
 ```
 ```
 curl localhost:8080/api/flag/hostaasd
